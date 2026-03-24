@@ -4,11 +4,23 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 
-// yt-dlp runner: prefer env overrides, fall back to python3 module (works on Railway/Docker)
+// yt-dlp runner: env override, or `yt-dlp` CLI on Linux (pip installs to PATH), or python -m on Windows
 const YTDLP_BIN =
   process.env.YTDLP_PATH ||
   process.env.YTDLP_BIN ||
-  "python3";
+  (process.platform === "win32" ? "python3" : "yt-dlp");
+
+function ytdlpPrefixArgs() {
+  const norm = YTDLP_BIN.replace(/\\/g, "/");
+  if (
+    norm === "python3" ||
+    norm.endsWith("/python3") ||
+    /\.?python3(\.exe)?$/i.test(YTDLP_BIN)
+  ) {
+    return ["-m", "yt_dlp"];
+  }
+  return [];
+}
 
 // Help yt-dlp YouTube extractor by enabling a JS runtime.
 // Use `node` from PATH to avoid Windows path/space parsing issues.
@@ -51,8 +63,7 @@ app.post("/analyze", (req, res) => {
   }
 
   const args = [
-    "-m",
-    "yt_dlp",
+    ...ytdlpPrefixArgs(),
     "--skip-download",
     "--no-playlist",
     "--js-runtimes",
@@ -291,8 +302,7 @@ app.post("/download", (req, res) => {
 
     const args = isMp3
       ? [
-          "-m",
-          "yt_dlp",
+          ...ytdlpPrefixArgs(),
           "-f",
           "bestaudio",
           "--js-runtimes",
@@ -305,8 +315,7 @@ app.post("/download", (req, res) => {
           url
         ]
       : [
-          "-m",
-          "yt_dlp",
+          ...ytdlpPrefixArgs(),
           "-f",
           selector,
           "--js-runtimes",

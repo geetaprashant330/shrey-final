@@ -2,7 +2,7 @@ FROM node:18
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package*.json requirements.txt ./
 RUN npm install
 
 COPY . .
@@ -10,9 +10,12 @@ COPY . .
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
-    ffmpeg
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --break-system-packages yt-dlp
+# Same interpreter as runtime `python3` / `yt-dlp` shebang (avoids pip vs python mismatch)
+RUN python3 -m pip install --break-system-packages --no-cache-dir -U -r requirements.txt \
+    && python3 -c "import yt_dlp"
 
 EXPOSE 3000
 

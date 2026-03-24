@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: shrey-final
+    runtime: docker
+    dockerfilePath: ShreyVideoDownloader/Dockerfile
+    dockerContext: ShreyVideoDownloader
