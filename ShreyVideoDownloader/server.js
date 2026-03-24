@@ -22,9 +22,24 @@ function ytdlpPrefixArgs() {
   return [];
 }
 
-// Help yt-dlp YouTube extractor by enabling a JS runtime.
-// Use `node` from PATH to avoid Windows path/space parsing issues.
-const JS_RUNTIME_ARG = "node";
+/** yt-dlp EJS: needs an explicit Node path in Docker/Linux (yt-dlp’s child may not inherit PATH). On Windows, `node:path` breaks on drive `C:` so we use `node` from PATH. */
+function jsRuntimeArg() {
+  if (process.env.YTDLP_JS_RUNTIME) return process.env.YTDLP_JS_RUNTIME;
+  if (process.platform === "win32") return "node";
+  return `node:${process.execPath}`;
+}
+
+/** Optional Netscape-format cookies file (see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies ) — needed for many cloud IPs. Set YTDLP_COOKIES_FILE to an absolute path. */
+function ytdlpCookieArgs() {
+  const p = process.env.YTDLP_COOKIES_FILE;
+  if (!p || typeof p !== "string") return [];
+  try {
+    if (fs.existsSync(p)) return ["--cookies", p];
+  } catch {
+    // ignore
+  }
+  return [];
+}
 
 let progressClients = [];
 let lastProgress = 0;
@@ -64,10 +79,11 @@ app.post("/analyze", (req, res) => {
 
   const args = [
     ...ytdlpPrefixArgs(),
+    ...ytdlpCookieArgs(),
     "--skip-download",
     "--no-playlist",
     "--js-runtimes",
-    JS_RUNTIME_ARG,
+    jsRuntimeArg(),
     "-J",
     url
   ];
@@ -118,6 +134,13 @@ app.post("/analyze", (req, res) => {
         return res
           .status(504)
           .json({ error: "Analysis took too long. Please try again or use a shorter URL." });
+      }
+
+      if (/sign in to confirm|not a bot/i.test(msg)) {
+        return res.status(503).json({
+          error:
+            "YouTube blocked this server (bot check). On cloud hosts you often need working YouTube cookies: set env YTDLP_COOKIES_FILE to a Netscape cookies file path, or update yt-dlp. See yt-dlp wiki: exporting YouTube cookies."
+        });
       }
 
       return res.status(500).json({ error: "Failed to analyze video." });
@@ -303,10 +326,11 @@ app.post("/download", (req, res) => {
     const args = isMp3
       ? [
           ...ytdlpPrefixArgs(),
+          ...ytdlpCookieArgs(),
           "-f",
           "bestaudio",
           "--js-runtimes",
-          JS_RUNTIME_ARG,
+          jsRuntimeArg(),
           "-x",
           "--audio-format",
           "mp3",
@@ -316,10 +340,11 @@ app.post("/download", (req, res) => {
         ]
       : [
           ...ytdlpPrefixArgs(),
+          ...ytdlpCookieArgs(),
           "-f",
           selector,
           "--js-runtimes",
-          JS_RUNTIME_ARG,
+          jsRuntimeArg(),
           "--ffmpeg-location",
           "/usr/bin",
           "--merge-output-format",
