@@ -20,6 +20,43 @@ const progressMetaPercentEl = document.getElementById("progress-meta-percent");
 const progressMetaSpeedEl = document.getElementById("progress-meta-speed");
 const progressMetaEtaEl = document.getElementById("progress-meta-eta");
 
+const appNoticeEl = document.getElementById("app-notice");
+const appNoticeContentEl = document.getElementById("app-notice-content");
+const appNoticeDismissEl = document.getElementById("app-notice-dismiss");
+
+function hideAppNotice() {
+  if (appNoticeEl) appNoticeEl.hidden = true;
+}
+
+function showAppNotice(html) {
+  if (!appNoticeContentEl || !appNoticeEl) return;
+  appNoticeContentEl.innerHTML = html;
+  appNoticeEl.hidden = false;
+}
+
+if (appNoticeDismissEl) {
+  appNoticeDismissEl.addEventListener("click", hideAppNotice);
+}
+
+function noticeForAnalyzeError(message, status) {
+  const isYtBot =
+    status === 503 ||
+    /sign in to confirm|not a bot|youtube blocked/i.test(String(message || ""));
+  if (isYtBot) {
+    return (
+      "<p><strong>YouTube is blocking this server.</strong> Cloud datacenter IPs often get a “bot” challenge. Your app is working; YouTube is refusing the request.</p>" +
+      "<p><strong>Fix for your Render deploy:</strong> export Netscape-format cookies from a browser where you’re signed into YouTube, upload them as a <a href=\"https://render.com/docs/configure-environment-variables#secret-files\" target=\"_blank\" rel=\"noopener noreferrer\">Render secret file</a>, then set environment variable <code>YTDLP_COOKIES_FILE</code> to the mount path Render gives you (see Render docs for that path). Redeploy so the file exists in the container.</p>" +
+      "<p><a href=\"https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies\" target=\"_blank\" rel=\"noopener noreferrer\">yt-dlp: exporting YouTube cookies</a> · <a href=\"https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp\" target=\"_blank\" rel=\"noopener noreferrer\">Passing cookies to yt-dlp</a></p>" +
+      "<p class=\"muted\" style=\"opacity:0.85;font-size:0.82rem;\">Non-YouTube sites may still work. Running yt-dlp on your own PC usually works without cookies.</p>"
+    );
+  }
+  const escaped = String(message || "Something went wrong.")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return `<p>${escaped}</p>`;
+}
+
 let currentFormats = [];
 let selectedFormat = null;
 let currentUrl = null;
@@ -152,6 +189,7 @@ async function analyzeUrl(event) {
   if (!url) return;
 
   setButtonLoading(analyzeBtn, true);
+  hideAppNotice();
   resultsCard.hidden = true;
   if (thumbnailImg) thumbnailImg.style.display = "none";
   if (thumbPlaceholder) thumbPlaceholder.style.display = "grid";
@@ -172,6 +210,7 @@ async function analyzeUrl(event) {
       } catch {
         // ignore parse errors, use default message
       }
+      showAppNotice(noticeForAnalyzeError(message, resp.status));
       throw new Error(message);
     }
 
@@ -209,7 +248,9 @@ async function analyzeUrl(event) {
     resultsCard.hidden = false;
   } catch (err) {
     console.error(err);
-    alert(err.message || "Failed to analyze video.");
+    if (appNoticeEl && appNoticeEl.hidden) {
+      showAppNotice(noticeForAnalyzeError(err.message, null));
+    }
   } finally {
     setButtonLoading(analyzeBtn, false);
   }
@@ -370,7 +411,12 @@ async function startDownload() {
     setProgress(100);
   } catch (err) {
     console.error(err);
-    alert(err.message || "Download failed.");
+    showAppNotice(
+      `<p><strong>Download failed.</strong></p><p>${String(err.message || "Unknown error")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")}</p>`
+    );
   } finally {
     setButtonLoading(downloadBtn, false);
     downloadBtn.disabled = false;

@@ -83,6 +83,19 @@
         <div class="detected" id="detected-platform" aria-live="polite" hidden>
           Detected Platform: <span class="detected-value" id="detected-platform-value"></span>
         </div>
+
+        <div
+          id="app-notice"
+          class="app-notice"
+          role="alert"
+          aria-live="assertive"
+          hidden
+        >
+          <div class="app-notice-content" id="app-notice-content"></div>
+          <button type="button" class="app-notice-dismiss" id="app-notice-dismiss" aria-label="Dismiss">
+            ×
+          </button>
+        </div>
       </section>
 
       <section class="card results-card" id="results-card" hidden>
